@@ -13,11 +13,12 @@ datasets = {
     "money_laundering_ds": "money_laundering_ds.csv.gz",
 }
 
-fraud_ds1 = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds1"]))
-fraud_ds2 = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds2"]))
-money_laundering_ds = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["money_laundering_ds"]))
-
 def data_transform():
+
+    fraud_ds1 = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds1"]))
+    fraud_ds2 = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds2"]))
+    money_laundering_ds = pd.read_csv(os.path.join(CLEANED_DATA_DIR, datasets["money_laundering_ds"]))
+    
     # 1. Customers (Nodes)
     customers = fraud_ds1[['cc_num', 'first', 'last', 'gender', 'street', 'city', 'state', 'zip', 'job', 'dob']].drop_duplicates()
     customers.to_csv(os.path.join(TRANSFORMED_DATA_DIR, 'customers.csv.gz'), index=False)
