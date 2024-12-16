@@ -10,9 +10,9 @@ TRANSFORMED_DATA_DIR = "data/transformed/"
 
 # Define dataset filenames
 datasets = {
-    "fraud_ds": "fraud_ds.csv",
-    "fraud_ds1": "fraud_ds1.csv",
-    "money_laundering_ds": "money_laundering_ds.csv",
+    "fraud_ds": "fraud_ds.csv.gz",
+    "fraud_ds1": "fraud_ds1.csv.gz",
+    "money_laundering_ds": "money_laundering_ds.csv.gz",
 }
 
 def etl_process():
