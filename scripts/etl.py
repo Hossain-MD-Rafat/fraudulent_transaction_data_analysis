@@ -10,8 +10,8 @@ TRANSFORMED_DATA_DIR = "data/transformed/"
 
 # Define dataset filenames
 datasets = {
-    "fraud_ds": "fraud_ds1.csv.gz",
-    "fraud_ds1": "fraud_ds2.csv.gz",
+    "fraud_ds1": "fraud_ds1.csv.gz",
+    "fraud_ds2": "fraud_ds2.csv.gz",
     "money_laundering_ds": "money_laundering_ds.csv.gz",
 }
 
@@ -22,16 +22,16 @@ def etl_process():
     os.makedirs(TRANSFORMED_DATA_DIR, exist_ok=True)
 
     # Step 1: Clean Data
-    print("Cleaning fraud_ds...")
-    clean_fraud_ds1(
-        os.path.join(RAW_DATA_DIR, datasets["fraud_ds"]),
-        os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds"])
-    )
-    
     print("Cleaning fraud_ds1...")
-    clean_fraud_ds2(
+    clean_fraud_ds1(
         os.path.join(RAW_DATA_DIR, datasets["fraud_ds1"]),
         os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds1"])
+    )
+    
+    print("Cleaning fraud_ds2...")
+    clean_fraud_ds2(
+        os.path.join(RAW_DATA_DIR, datasets["fraud_ds2"]),
+        os.path.join(CLEANED_DATA_DIR, datasets["fraud_ds2"])
     )
     
     print("Cleaning money_laundering_ds...")

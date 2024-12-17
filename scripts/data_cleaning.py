@@ -12,6 +12,12 @@ datasets = {
     "money_laundering_ds": "money_laundering_ds.csv.gz",
 }
 
+
+df1 = pd.read_csv(os.path.join(RAW_DATA_DIR, datasets["fraud_ds1"]))
+df2 = pd.read_csv(os.path.join(RAW_DATA_DIR, datasets["fraud_ds2"]))
+df3 = pd.read_csv(os.path.join(RAW_DATA_DIR, datasets["money_laundering_ds"]))
+
+
 def clean_fraud_ds1(input_file, output_file):
     """Cleans fraud_ds1 dataset."""
     df = pd.read_csv(input_file)
