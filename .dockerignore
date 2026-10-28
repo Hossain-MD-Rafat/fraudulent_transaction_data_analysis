@@ -1,0 +1,23 @@
+.git
+.github
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.ipynb_checkpoints
+
+# Data and generated artifacts are not required by the Phase 3 API/dashboard image.
+data/raw
+data/cleaned
+data/transformed
+outputs
+models
+reports/figures
+
+# Local/editor files
+.env
+.env.*
+.vscode
+.idea
+.DS_Store
