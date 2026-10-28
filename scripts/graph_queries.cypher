@@ -117,12 +117,17 @@ LIMIT 200;
 // -----------------------------------------------------------------------------
 // 8. Circular three-account movement (A -> B -> C -> A)
 // Event nodes mean each transfer is preserved and the path can be inspected.
+// Keep A as the lexicographically smallest account only to avoid rotating the
+// same directed cycle three times without excluding a valid cycle orientation.
 // -----------------------------------------------------------------------------
 MATCH (a:Account)-[:SENT]->(x1:AMLTransfer)-[:RECEIVED_BY]->(b:Account),
       (b)-[:SENT]->(x2:AMLTransfer)-[:RECEIVED_BY]->(c:Account),
       (c)-[:SENT]->(x3:AMLTransfer)-[:RECEIVED_BY]->(a)
 WHERE a.AccountID < b.AccountID
-  AND b.AccountID < c.AccountID
+  AND a.AccountID < c.AccountID
+  AND a <> b
+  AND b <> c
+  AND c <> a
 RETURN
     a.AccountID AS accountA,
     b.AccountID AS accountB,
@@ -137,13 +142,13 @@ LIMIT 100;
 
 // -----------------------------------------------------------------------------
 // 9. Rapid pass-through pattern
-// B receives money and sends another transfer shortly afterward.
+// B receives money and sends another transfer within 24 hours.
 // This is a simplified layering heuristic, not a laundering determination.
 // -----------------------------------------------------------------------------
 MATCH (a:Account)-[:SENT]->(incoming:AMLTransfer)-[:RECEIVED_BY]->(b:Account)
 MATCH (b)-[:SENT]->(outgoing:AMLTransfer)-[:RECEIVED_BY]->(c:Account)
 WHERE outgoing.Timestamp >= incoming.Timestamp
-  AND duration.between(incoming.Timestamp, outgoing.Timestamp).hours <= 24
+  AND outgoing.Timestamp <= incoming.Timestamp + duration({hours: 24})
 RETURN
     b.AccountID AS passThroughAccount,
     a.AccountID AS incomingFrom,
