@@ -3,9 +3,10 @@
 Usage:
     python scripts/train_fraud_baseline.py
 
-The script uses a chronological split, leakage-aware behavioral features,
-class weighting, and fraud-focused metrics. It saves metrics and the fitted
-pipeline under outputs/.
+The script uses chronological train/validation/test splits, leakage-aware
+behavioral features, class weighting, and fraud-focused metrics. The decision
+threshold is selected on validation data only; the test set stays untouched
+until final evaluation.
 """
 
 from __future__ import annotations
@@ -71,14 +72,23 @@ CATEGORICAL_FEATURES = ["category", "gender", "state"]
 TARGET = "is_fraud"
 
 
-def time_split(df: pd.DataFrame, train_fraction: float = 0.80) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Chronological split to mimic training on the past and scoring the future."""
-    split_idx = int(len(df) * train_fraction)
-    return df.iloc[:split_idx].copy(), df.iloc[split_idx:].copy()
+def chronological_split(
+    df: pd.DataFrame,
+    train_fraction: float = 0.70,
+    validation_fraction: float = 0.15,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Split chronologically into train, validation, and test sets."""
+    train_end = int(len(df) * train_fraction)
+    validation_end = train_end + int(len(df) * validation_fraction)
+    return (
+        df.iloc[:train_end].copy(),
+        df.iloc[train_end:validation_end].copy(),
+        df.iloc[validation_end:].copy(),
+    )
 
 
 def choose_threshold(y_true: pd.Series, probabilities: np.ndarray) -> float:
-    """Choose the validation threshold that maximizes F1 rather than assuming 0.5."""
+    """Choose the validation threshold that maximizes F1."""
     precision, recall, thresholds = precision_recall_curve(y_true, probabilities)
     if len(thresholds) == 0:
         return 0.5
@@ -137,26 +147,34 @@ def main() -> None:
 
     raw = pd.read_csv(DATA_PATH)
     features = build_fraud_ds1_features(raw)
-    train_df, test_df = time_split(features)
+    train_df, validation_df, test_df = chronological_split(features)
 
-    X_train = train_df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+    feature_columns = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+    X_train = train_df[feature_columns]
     y_train = train_df[TARGET].astype(int)
-    X_test = test_df[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
+    X_validation = validation_df[feature_columns]
+    y_validation = validation_df[TARGET].astype(int)
+    X_test = test_df[feature_columns]
     y_test = test_df[TARGET].astype(int)
 
     pipeline = build_pipeline()
     pipeline.fit(X_train, y_train)
 
+    validation_prob = pipeline.predict_proba(X_validation)[:, 1]
+    threshold = choose_threshold(y_validation, validation_prob)
+
     test_prob = pipeline.predict_proba(X_test)[:, 1]
-    threshold = choose_threshold(y_test, test_prob)
     metrics = evaluate(y_test, test_prob, threshold)
     metrics.update(
         {
             "train_rows": int(len(train_df)),
+            "validation_rows": int(len(validation_df)),
             "test_rows": int(len(test_df)),
             "train_fraud_rate": float(y_train.mean()),
+            "validation_fraud_rate": float(y_validation.mean()),
             "test_fraud_rate": float(y_test.mean()),
-            "split_strategy": "chronological_80_20",
+            "split_strategy": "chronological_70_15_15",
+            "threshold_selection": "validation_f1_maximization",
             "model": "class_weighted_logistic_regression",
         }
     )
