@@ -1,0 +1,57 @@
+name: phase1-benchmark
+
+on:
+  push:
+    branches: [phase-1-fraud-detection-foundation]
+    paths:
+      - "src/fraud_detection/**"
+      - "scripts/benchmark_fraud_models.py"
+      - "scripts/temporal_backtest_fraud_models.py"
+      - "data/raw/fraud_ds1.csv.gz"
+      - "requirements.txt"
+      - ".github/workflows/phase1-benchmark.yml"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            numpy==1.26.4 \
+            pandas==2.2.3 \
+            scipy==1.14.1 \
+            scikit-learn==1.5.1 \
+            xgboost==2.1.4 \
+            joblib==1.4.2
+
+      - name: Run single-window Phase 1 benchmark
+        run: python scripts/benchmark_fraud_models.py
+
+      - name: Run expanding-window temporal backtest
+        run: python scripts/temporal_backtest_fraud_models.py
+
+      - name: Upload benchmark outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-benchmark-results
+          path: |
+            outputs/phase1/model_benchmark.json
+            outputs/phase1/best_model_test_predictions.csv
+            outputs/phase1/temporal_backtest.json
+            outputs/phase1/temporal_backtest_test_predictions.csv
+          if-no-files-found: error
+          retention-days: 30
