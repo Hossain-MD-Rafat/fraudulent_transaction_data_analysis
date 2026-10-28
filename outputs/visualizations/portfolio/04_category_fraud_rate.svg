@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1050" height="520" viewBox="0 0 1050 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="525.0" y="35" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700">Highest Observed Fraud Rates by Merchant Category (DS1)</text>
+<line x1="90" y1="420" x2="1020" y2="420" stroke="#333"/>
+<line x1="90" y1="70" x2="90" y2="420" stroke="#333"/>
+<line x1="90" y1="420.0" x2="1020" y2="420.0" stroke="#ddd"/>
+<text x="80" y="425.0" text-anchor="end" font-family="Arial" font-size="12">0.00</text>
+<line x1="90" y1="350.0" x2="1020" y2="350.0" stroke="#ddd"/>
+<text x="80" y="355.0" text-anchor="end" font-family="Arial" font-size="12">0.45</text>
+<line x1="90" y1="280.0" x2="1020" y2="280.0" stroke="#ddd"/>
+<text x="80" y="285.0" text-anchor="end" font-family="Arial" font-size="12">0.89</text>
+<line x1="90" y1="210.0" x2="1020" y2="210.0" stroke="#ddd"/>
+<text x="80" y="215.0" text-anchor="end" font-family="Arial" font-size="12">1.34</text>
+<line x1="90" y1="140.0" x2="1020" y2="140.0" stroke="#ddd"/>
+<text x="80" y="145.0" text-anchor="end" font-family="Arial" font-size="12">1.79</text>
+<line x1="90" y1="70.0" x2="1020" y2="70.0" stroke="#ddd"/>
+<text x="80" y="75.0" text-anchor="end" font-family="Arial" font-size="12">2.24</text>
+<rect x="106.275" y="115.65217391304344" width="60.45" height="304.34782608695656" rx="3" fill="#4C78A8"/><text x="136.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">shopping_net</text><text x="136.5" y="107.65217391304344" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">1.94% n=463</text>
+<rect x="199.275" y="187.0858785483291" width="60.45" height="232.9141214516709" rx="3" fill="#4C78A8"/><text x="229.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">grocery_pos</text><text x="229.5" y="179.0858785483291" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">1.49% n=605</text>
+<rect x="292.275" y="265.4900839054157" width="60.45" height="154.5099160945843" rx="3" fill="#4C78A8"/><text x="322.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">misc_net</text><text x="322.5" y="257.4900839054157" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.99% n=304</text>
+<rect x="385.275" y="348.8317962231006" width="60.45" height="71.16820377689945" rx="3" fill="#4C78A8"/><text x="415.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">entertainment</text><text x="415.5" y="340.8317962231006" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.45% n=440</text>
+<rect x="478.275" y="363.5783609696653" width="60.45" height="56.42163903033469" rx="3" fill="#4C78A8"/><text x="508.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">kids_pets</text><text x="508.5" y="355.5783609696653" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.36% n=555</text>
+<rect x="571.275" y="366.2881480929061" width="60.45" height="53.711851907093916" rx="3" fill="#4C78A8"/><text x="601.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">shopping_pos</text><text x="601.5" y="358.2881480929061" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.34% n=583</text>
+<rect x="664.275" y="377.56909259913857" width="60.45" height="42.43090740086145" rx="3" fill="#4C78A8"/><text x="694.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">health_fitness</text><text x="694.5" y="369.56909259913857" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.27% n=369</text>
+<rect x="757.275" y="379.2265499194847" width="60.45" height="40.773450080515296" rx="3" fill="#4C78A8"/><text x="787.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">misc_pos</text><text x="787.5" y="371.2265499194847" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.26% n=384</text>
+<rect x="850.275" y="383.7569332617642" width="60.45" height="36.24306673823582" rx="3" fill="#4C78A8"/><text x="880.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">food_dining</text><text x="880.5" y="375.7569332617642" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.23% n=432</text>
+<rect x="943.275" y="393.2358891779182" width="60.45" height="26.76411082208184" rx="3" fill="#4C78A8"/><text x="973.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">home</text><text x="973.5" y="385.2358891779182" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.17% n=585</text>
+<text x="20" y="245.0" transform="rotate(-90 20 245.0)" text-anchor="middle" font-family="Arial" font-size="14">Fraud rate (%)</text>
+</svg>

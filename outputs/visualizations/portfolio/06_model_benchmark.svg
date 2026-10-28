@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450" y="35" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700">Initial Out-of-Time Fraud Model Benchmark</text>
+<line x1="90" y1="420" x2="870" y2="420" stroke="#333"/><line x1="90" y1="70" x2="90" y2="420" stroke="#333"/>
+<line x1="90" y1="420" x2="870" y2="420" stroke="#ddd"/><line x1="90" y1="350" x2="870" y2="350" stroke="#ddd"/><line x1="90" y1="280" x2="870" y2="280" stroke="#ddd"/><line x1="90" y1="210" x2="870" y2="210" stroke="#ddd"/><line x1="90" y1="140" x2="870" y2="140" stroke="#ddd"/><line x1="90" y1="70" x2="870" y2="70" stroke="#ddd"/>
+<text x="80" y="425" text-anchor="end" font-family="Arial" font-size="12">0.00</text><text x="80" y="355" text-anchor="end" font-family="Arial" font-size="12">0.22</text><text x="80" y="285" text-anchor="end" font-family="Arial" font-size="12">0.44</text><text x="80" y="215" text-anchor="end" font-family="Arial" font-size="12">0.67</text><text x="80" y="145" text-anchor="end" font-family="Arial" font-size="12">0.89</text><text x="80" y="75" text-anchor="end" font-family="Arial" font-size="12">1.11</text>
+<rect x="117.3" y="207.7" width="101.4" height="212.3" fill="#4C78A8"/><text x="168" y="444" text-anchor="middle" font-family="Arial" font-size="12">PR-AUC</text><text x="168" y="199.7" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.673</text>
+<rect x="273.3" y="115.7" width="101.4" height="304.3" fill="#4C78A8"/><text x="324" y="444" text-anchor="middle" font-family="Arial" font-size="12">ROC-AUC</text><text x="324" y="107.7" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.965</text>
+<rect x="429.3" y="307.4" width="101.4" height="112.6" fill="#4C78A8"/><text x="480" y="444" text-anchor="middle" font-family="Arial" font-size="12">Precision</text><text x="480" y="299.4" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.357</text>
+<rect x="585.3" y="194.8" width="101.4" height="225.2" fill="#4C78A8"/><text x="636" y="444" text-anchor="middle" font-family="Arial" font-size="12">Recall</text><text x="636" y="186.8" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.714</text>
+<rect x="741.3" y="269.9" width="101.4" height="150.1" fill="#4C78A8"/><text x="792" y="444" text-anchor="middle" font-family="Arial" font-size="12">F1</text><text x="792" y="261.9" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.476</text>
+<text x="20" y="245" transform="rotate(-90 20 245)" text-anchor="middle" font-family="Arial" font-size="14">Score</text>
+</svg>

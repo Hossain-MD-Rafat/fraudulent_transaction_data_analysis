@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="35" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700">Transaction Amount Summary: Fraud vs Legitimate (DS1)</text>
+<line x1="90" y1="420" x2="870" y2="420" stroke="#333"/>
+<line x1="90" y1="70" x2="90" y2="420" stroke="#333"/>
+<line x1="90" y1="420.0" x2="870" y2="420.0" stroke="#ddd"/>
+<text x="80" y="425.0" text-anchor="end" font-family="Arial" font-size="12">0.00</text>
+<line x1="90" y1="350.0" x2="870" y2="350.0" stroke="#ddd"/>
+<text x="80" y="355.0" text-anchor="end" font-family="Arial" font-size="12">248.36</text>
+<line x1="90" y1="280.0" x2="870" y2="280.0" stroke="#ddd"/>
+<text x="80" y="285.0" text-anchor="end" font-family="Arial" font-size="12">496.71</text>
+<line x1="90" y1="210.0" x2="870" y2="210.0" stroke="#ddd"/>
+<text x="80" y="215.0" text-anchor="end" font-family="Arial" font-size="12">745.07</text>
+<line x1="90" y1="140.0" x2="870" y2="140.0" stroke="#ddd"/>
+<text x="80" y="145.0" text-anchor="end" font-family="Arial" font-size="12">993.43</text>
+<line x1="90" y1="70.0" x2="870" y2="70.0" stroke="#ddd"/>
+<text x="80" y="75.0" text-anchor="end" font-family="Arial" font-size="12">1241.78</text>
+<rect x="124.125" y="406.6824397045696" width="126.75" height="13.317560295430397" rx="3" fill="#4C78A8"/>
+<text x="187.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">Legit median</text>
+<text x="187.5" y="398.6824397045696" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">$47</text>
+<rect x="319.125" y="291.13393137198454" width="126.75" height="128.86606862801548" rx="3" fill="#4C78A8"/>
+<text x="382.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">Fraud median</text>
+<text x="382.5" y="283.13393137198454" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">$457</text>
+<rect x="514.125" y="381.27788987031937" width="126.75" height="38.72211012968062" rx="3" fill="#4C78A8"/>
+<text x="577.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">Legit p90</text>
+<text x="577.5" y="373.27788987031937" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">$137</text>
+<rect x="709.125" y="115.65217391304344" width="126.75" height="304.34782608695656" rx="3" fill="#4C78A8"/>
+<text x="772.5" y="444" text-anchor="middle" font-family="Arial" font-size="12">Fraud p90</text>
+<text x="772.5" y="107.65217391304344" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">$1,080</text>
+<text x="20" y="245.0" transform="rotate(-90 20 245.0)" text-anchor="middle" font-family="Arial" font-size="14">Amount ($)</text>
+</svg>
