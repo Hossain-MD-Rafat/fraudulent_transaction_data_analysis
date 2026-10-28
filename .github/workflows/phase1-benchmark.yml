@@ -6,6 +6,7 @@ on:
     paths:
       - "src/fraud_detection/**"
       - "scripts/benchmark_fraud_models.py"
+      - "scripts/temporal_backtest_fraud_models.py"
       - "data/raw/fraud_ds1.csv.gz"
       - "requirements.txt"
       - ".github/workflows/phase1-benchmark.yml"
@@ -37,8 +38,11 @@ jobs:
             xgboost==2.1.4 \
             joblib==1.4.2
 
-      - name: Run Phase 1 model benchmark
+      - name: Run single-window Phase 1 benchmark
         run: python scripts/benchmark_fraud_models.py
+
+      - name: Run expanding-window temporal backtest
+        run: python scripts/temporal_backtest_fraud_models.py
 
       - name: Upload benchmark outputs
         uses: actions/upload-artifact@v4
@@ -47,5 +51,7 @@ jobs:
           path: |
             outputs/phase1/model_benchmark.json
             outputs/phase1/best_model_test_predictions.csv
+            outputs/phase1/temporal_backtest.json
+            outputs/phase1/temporal_backtest_test_predictions.csv
           if-no-files-found: error
           retention-days: 30
