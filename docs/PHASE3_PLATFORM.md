@@ -5,41 +5,62 @@ Phase 3 turns the validated ML + graph foundation into an analyst-facing, reprod
 ## Current architecture
 
 ```text
-Model / benchmark output
+Engineered transaction features
         |
         v
-Fraud probability + amount
+Versioned fraud model artifact
         |
-        +--------------------+
-        |                    |
-        v                    v
-FastAPI Decision API    Streamlit Analyst Console
-        |                    |
-        v                    v
-Risk score 0-100        Portfolio overview
-Expected exposure       Investigation queue
-APPROVE/REVIEW/BLOCK    Decision sandbox
+        v
+Fraud probability
+        |
+        +-------------------------+
+        |                         |
+        v                         v
+FastAPI Scoring API        Streamlit Analyst Console
+        |                         |
+        v                         v
+Risk score 0-100           Portfolio overview
+Expected exposure          Investigation queue
+Reason codes               Decision sandbox
+APPROVE/REVIEW/BLOCK
 ```
 
-The API currently accepts a fraud probability rather than loading a trained model artifact. This is intentional: model serving should only be added after a stable feature contract, artifact version, and inference pipeline are defined.
+The service uses a strict versioned feature contract. Behavioral features must be calculated from transactions that occurred before the transaction being scored; the API does not reconstruct historical customer behavior from a single raw transaction.
+
+## Prepare the model artifact
+
+First run the benchmark that selects and serializes the best Phase 1 pipeline:
+
+```bash
+python scripts/benchmark_fraud_models.py
+```
+
+Then package it for the scoring service:
+
+```bash
+python scripts/package_fraud_model.py
+```
+
+This creates the local, Git-ignored directory:
+
+```text
+models/fraud_ds1_xgb_v1/
+├── model.joblib
+└── metadata.json
+```
+
+The metadata records the model version, feature-contract version, exact feature order, validation-selected review threshold, split strategy, and final test metrics. The API rejects missing or incompatible artifacts instead of silently falling back to another model.
 
 ## Run locally
 
-Install dependencies:
-
 ```bash
 pip install -r requirements.txt
-```
-
-Start the API:
-
-```bash
 uvicorn api.main:app --reload
 ```
 
-Open the interactive API documentation at `http://localhost:8000/docs`.
+Open `http://localhost:8000/docs` for the interactive API documentation.
 
-Start the analyst dashboard in another terminal:
+In another terminal:
 
 ```bash
 streamlit run dashboard/app.py
@@ -59,43 +80,43 @@ Services:
 - API docs: `http://localhost:8000/docs`
 - Analyst dashboard: `http://localhost:8501`
 
-The Docker build intentionally excludes raw/cleaned/transformed datasets and generated artifacts. The Phase 3 application image should contain application code, not training data.
+The API mounts `./models` read-only. Model binaries remain external deployable artifacts rather than being baked into the application image. Raw and transformed datasets are excluded from the Docker build context.
 
-## API contract
+## API contracts
 
 ### Health
 
 `GET /health`
 
-### Fraud decision
+### Decision-only endpoint
 
 `POST /v1/decision`
 
-Example request:
+Use this when an upstream system already has a fraud probability and only needs the policy layer: risk score, expected exposure, and APPROVE/REVIEW/BLOCK action.
 
-```json
-{
-  "transaction_id": "txn-001",
-  "amount": 1000.0,
-  "fraud_probability": 0.60,
-  "review_threshold": 0.50,
-  "block_threshold": 0.90
-}
-```
+### Model scoring endpoint
 
-Example decision fields:
+`POST /v1/score`
 
+The request contains a transaction ID plus the `fraud_ds1_features_v1` engineered feature contract. The response includes:
+
+- model version
+- feature-contract version
 - fraud probability
 - risk score (0-100)
 - expected fraud exposure
 - APPROVE / REVIEW / BLOCK action
 - effective review and block thresholds
+- reason codes
+- explanation method identifier
 
-The thresholds are demonstration policy controls. They are not represented as bank-specific operating rules.
+The current reason codes are transparent heuristic investigator cues such as unusual amount, geographic distance, velocity, novelty, and nighttime activity. They are deliberately labeled `heuristic_input_signals_v1`; they are not presented as SHAP/model attribution yet.
+
+If the model or metadata is unavailable or incompatible, `/v1/score` returns HTTP 503.
 
 ## Analyst console
 
-The Streamlit console can ingest a scored transaction CSV. It normalizes common probability/amount/id column names and provides:
+The Streamlit console can ingest a scored transaction CSV and provides:
 
 - transaction count
 - review queue size
@@ -109,11 +130,9 @@ The Streamlit console can ingest a scored transaction CSV. It normalizes common 
 
 ## Next production increments
 
-1. Define and version a strict inference feature contract.
-2. Persist a selected trained model artifact with metadata and threshold configuration.
-3. Add `/v1/score` to transform a transaction payload into features and model probability.
-4. Add SHAP reason codes to the scoring response.
-5. Add Neo4j-backed account/network risk enrichment.
-6. Add request/decision logging and model/version identifiers.
-7. Add drift and operational monitoring.
-8. Add Docker build checks and deployment configuration.
+1. Add genuine SHAP-based model reason codes and local explanations.
+2. Add Neo4j-backed account/network risk enrichment.
+3. Combine transaction probability and graph-risk signals into a governed unified risk policy.
+4. Add request/decision audit logging and model/version identifiers to persisted events.
+5. Add drift and operational monitoring.
+6. Add Docker build checks and deployment configuration.
