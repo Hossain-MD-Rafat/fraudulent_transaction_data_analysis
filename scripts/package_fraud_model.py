@@ -13,10 +13,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import shutil
-
-from src.fraud_detection.inference import FEATURE_CONTRACT_VERSION, FEATURES
+import sys
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from fraud_detection.inference import FEATURE_CONTRACT_VERSION, FEATURES  # noqa: E402
+
 PHASE1_DIR = PROJECT_ROOT / "outputs" / "phase1"
 SOURCE_MODEL = PHASE1_DIR / "best_fraud_model.joblib"
 SOURCE_BENCHMARK = PHASE1_DIR / "model_benchmark.json"
