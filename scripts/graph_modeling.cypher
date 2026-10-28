@@ -65,9 +65,9 @@ LOAD CSV WITH HEADERS FROM 'file:///transactions.csv' AS row
 CALL {
     WITH row
     MERGE (t:Transaction {TransactionID: row.TransactionID})
-    SET t.TransactionDate = datetime(row.TransactionDate),
+    SET t.TransactionDate = datetime(replace(row.TransactionDate, ' ', 'T')),
         t.Amount = toFloat(row.Amount),
-        t.IsFraud = toBoolean(row.IsFraud),
+        t.IsFraud = toInteger(row.IsFraud) = 1,
         t.SourceDataset = row.SourceDataset
 } IN TRANSACTIONS OF 5000 ROWS;
 
@@ -144,13 +144,13 @@ LOAD CSV WITH HEADERS FROM 'file:///aml_transfers.csv' AS row
 CALL {
     WITH row
     MERGE (x:AMLTransfer {TransferID: row.TransferID})
-    SET x.Timestamp = datetime(row.Timestamp),
+    SET x.Timestamp = datetime(replace(replace(row.Timestamp, '/', '-'), ' ', 'T')),
         x.AmountPaid = toFloat(row.AmountPaid),
         x.AmountReceived = toFloat(row.AmountReceived),
         x.PaymentCurrency = row.PaymentCurrency,
         x.ReceivingCurrency = row.ReceivingCurrency,
         x.PaymentFormat = row.PaymentFormat,
-        x.IsLaundering = toBoolean(row.IsLaundering),
+        x.IsLaundering = toInteger(row.IsLaundering) = 1,
         x.FromBank = row.FromBank,
         x.ToBank = row.ToBank
 
