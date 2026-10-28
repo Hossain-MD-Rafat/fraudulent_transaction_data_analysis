@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from src.fraud_detection.features import build_fraud_ds1_features, haversine_km
+from fraud_detection.features import build_fraud_ds1_features, haversine_km
 
 
 def test_haversine_zero_distance():
