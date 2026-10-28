@@ -8,7 +8,7 @@ The project is being upgraded from a graph-analysis prototype into an industry-s
 
 1. **Phase 1 — Transaction Fraud Detection Foundation**
    - leakage-aware feature engineering
-   - chronological train/test evaluation
+   - chronological train/validation/test evaluation
    - class-imbalance-aware models
    - fraud-focused metrics such as precision, recall, F1, PR-AUC, and ROC-AUC
 2. **Phase 2 — Graph Fraud & AML Intelligence**
@@ -44,11 +44,12 @@ The Phase 1 branch introduces behavioral features for `fraud_ds1` that only use 
 
 `scripts/train_fraud_baseline.py` trains a class-weighted Logistic Regression model with:
 
-- chronological 80/20 split
+- chronological 70/15/15 train/validation/test split
+- threshold tuning on validation data only
 - median numeric imputation
 - categorical one-hot encoding
 - numeric scaling
-- fraud-focused evaluation
+- fraud-focused evaluation on the untouched test set
 - saved predictions, metrics, and model artifact
 
 The baseline intentionally starts with an interpretable model. Stronger tree-based models will be compared after the evaluation framework is established.
