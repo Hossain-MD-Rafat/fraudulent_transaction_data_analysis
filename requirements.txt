@@ -20,10 +20,11 @@ neo4j==5.25.0
 jupyterlab==4.2.5
 ipykernel==6.29.5
 
-# API / dashboard (Phase 3-ready dependencies)
+# API / dashboard
 fastapi==0.115.6
 uvicorn==0.34.0
 streamlit==1.41.1
+httpx==0.28.1
 
 # Testing / quality
 pytest==8.3.4

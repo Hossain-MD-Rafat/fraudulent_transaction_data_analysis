@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="35" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700">Positive-Class Rate Across Project Datasets</text>
+<line x1="90" y1="420" x2="870" y2="420" stroke="#333"/>
+<line x1="90" y1="70" x2="90" y2="420" stroke="#333"/>
+<line x1="90" y1="420.0" x2="870" y2="420.0" stroke="#ddd"/>
+<text x="80" y="425.0" text-anchor="end" font-family="Arial" font-size="12">0.00</text>
+<line x1="90" y1="350.0" x2="870" y2="350.0" stroke="#ddd"/>
+<text x="80" y="355.0" text-anchor="end" font-family="Arial" font-size="12">0.24</text>
+<line x1="90" y1="280.0" x2="870" y2="280.0" stroke="#ddd"/>
+<text x="80" y="285.0" text-anchor="end" font-family="Arial" font-size="12">0.47</text>
+<line x1="90" y1="210.0" x2="870" y2="210.0" stroke="#ddd"/>
+<text x="80" y="215.0" text-anchor="end" font-family="Arial" font-size="12">0.71</text>
+<line x1="90" y1="140.0" x2="870" y2="140.0" stroke="#ddd"/>
+<text x="80" y="145.0" text-anchor="end" font-family="Arial" font-size="12">0.95</text>
+<line x1="90" y1="70.0" x2="870" y2="70.0" stroke="#ddd"/>
+<text x="80" y="75.0" text-anchor="end" font-family="Arial" font-size="12">1.19</text>
+<rect x="135.5" y="274.67883342279475" width="169.0" height="145.32116657720525" rx="3" fill="#4C78A8"/>
+<text x="220.0" y="444" text-anchor="middle" font-family="Arial" font-size="12">Fraud DS1</text>
+<text x="220.0" y="266.67883342279475" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.492% (31)</text>
+<rect x="395.5" y="115.65217391304344" width="169.0" height="304.34782608695656" rx="3" fill="#4C78A8"/>
+<text x="480.0" y="444" text-anchor="middle" font-family="Arial" font-size="12">Fraud DS2</text>
+<text x="480.0" y="107.65217391304344" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">1.031% (351)</text>
+<rect x="655.5" y="405.9767277910058" width="169.0" height="14.023272208994165" rx="3" fill="#4C78A8"/>
+<text x="740.0" y="444" text-anchor="middle" font-family="Arial" font-size="12">AML</text>
+<text x="740.0" y="397.9767277910058" text-anchor="middle" font-family="Arial" font-size="12" font-weight="600">0.047% (10)</text>
+<text x="20" y="245.0" transform="rotate(-90 20 245.0)" text-anchor="middle" font-family="Arial" font-size="14">Positive rate (%)</text>
+</svg>

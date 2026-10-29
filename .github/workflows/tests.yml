@@ -2,7 +2,10 @@ name: tests
 
 on:
   push:
-    branches: [main, phase-1-fraud-detection-foundation]
+    branches:
+      - main
+      - phase-1-fraud-detection-foundation
+      - phase-3-fraud-intelligence-platform
   pull_request:
     branches: [main]
 
@@ -22,7 +25,56 @@ jobs:
       - name: Install test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy==1.26.4 pandas==2.2.3 scikit-learn==1.5.1 pytest==8.3.4
+          pip install \
+            numpy==1.26.4 \
+            pandas==2.2.3 \
+            scikit-learn==1.5.1 \
+            fastapi==0.115.6 \
+            httpx==0.28.1 \
+            pytest==8.3.4
 
       - name: Run unit tests
         run: pytest
+
+  real-model-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install model dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            numpy==1.26.4 \
+            pandas==2.2.3 \
+            scikit-learn==1.5.1 \
+            xgboost==2.1.4 \
+            joblib==1.4.2
+
+      - name: Train selected benchmark model
+        run: python scripts/benchmark_fraud_models.py
+
+      - name: Package versioned artifact
+        run: python scripts/package_fraud_model.py
+
+      - name: Smoke test packaged model
+        run: python scripts/smoke_test_packaged_model.py
+
+  docker-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        run: docker compose config
+
+      - name: Build application image
+        run: docker build -t fraud-intelligence-platform:ci .

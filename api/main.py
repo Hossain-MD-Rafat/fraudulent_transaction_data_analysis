@@ -1,0 +1,280 @@
+"""FastAPI boundary for fraud scoring and operational decisions."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+import os
+from pathlib import Path
+import sys
+
+import numpy as np
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field, model_validator
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from fraud_detection.explainability import local_shap_explanation  # noqa: E402
+from fraud_detection.graph_risk import (  # noqa: E402
+    apply_graph_escalation_policy,
+    fetch_account_graph_risk,
+    unified_risk_score,
+)
+from fraud_detection.inference import (  # noqa: E402
+    ModelBundle,
+    heuristic_reason_codes,
+    load_model_bundle,
+    predict_probability,
+)
+from fraud_detection.monitoring import log_score_event  # noqa: E402
+from fraud_detection.risk import make_risk_decisions  # noqa: E402
+
+
+app = FastAPI(
+    title="Fraud Intelligence Decision API",
+    version="0.4.0",
+    description=(
+        "Fraud scoring and decision service with versioned model inference, "
+        "local explanations, optional Neo4j network enrichment, and governed "
+        "decision escalation."
+    ),
+)
+
+DEFAULT_MODEL_PATH = PROJECT_ROOT / "models" / "fraud_ds1_xgb_v1" / "model.joblib"
+DEFAULT_METADATA_PATH = PROJECT_ROOT / "models" / "fraud_ds1_xgb_v1" / "metadata.json"
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    version: str
+
+
+class DecisionRequest(BaseModel):
+    transaction_id: str = Field(min_length=1, max_length=256)
+    amount: float = Field(ge=0)
+    fraud_probability: float = Field(ge=0, le=1)
+    review_threshold: float = Field(default=0.50, gt=0, lt=1)
+    block_threshold: float | None = Field(default=None, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_threshold_order(self) -> "DecisionRequest":
+        if self.block_threshold is not None and self.block_threshold < self.review_threshold:
+            raise ValueError("block_threshold must be greater than or equal to review_threshold")
+        return self
+
+
+class DecisionResponse(BaseModel):
+    transaction_id: str
+    amount: float
+    fraud_probability: float
+    risk_score: int
+    expected_fraud_loss: float
+    decision: str
+    review_threshold: float
+    block_threshold: float
+
+
+class ScoreFeatures(BaseModel):
+    amt: float = Field(ge=0)
+    city_pop: float = Field(ge=0)
+    customer_age: float = Field(ge=0, le=120)
+    merchant_distance_km: float = Field(ge=0)
+    transaction_hour: int = Field(ge=0, le=23)
+    transaction_dayofweek: int = Field(ge=0, le=6)
+    transaction_month: int = Field(ge=1, le=12)
+    is_weekend: int = Field(ge=0, le=1)
+    is_night: int = Field(ge=0, le=1)
+    prior_txn_count: float = Field(ge=0)
+    prior_avg_amount: float = Field(ge=0)
+    prior_std_amount: float = Field(ge=0)
+    amount_to_prior_mean: float = Field(ge=0)
+    amount_zscore_prior: float
+    minutes_since_prev_txn: float = Field(ge=0)
+    txns_prev_1h: float = Field(ge=0)
+    txns_prev_24h: float = Field(ge=0)
+    prior_same_merchant_count: float = Field(ge=0)
+    prior_same_category_count: float = Field(ge=0)
+    is_new_merchant_for_card: int = Field(ge=0, le=1)
+    is_new_category_for_card: int = Field(ge=0, le=1)
+    category: str = Field(min_length=1, max_length=128)
+    gender: str = Field(min_length=1, max_length=32)
+    state: str = Field(min_length=1, max_length=32)
+
+
+class ScoreRequest(BaseModel):
+    transaction_id: str = Field(min_length=1, max_length=256)
+    account_id: str | None = Field(default=None, max_length=256)
+    features: ScoreFeatures
+
+
+class ShapContribution(BaseModel):
+    feature: str
+    shap_value: float
+    direction: str
+
+
+class GraphEnrichment(BaseModel):
+    available: bool
+    account_id: str | None
+    graph_risk_score: int | None
+    signals: dict[str, float | int]
+    error: str | None
+
+
+class ScoreResponse(BaseModel):
+    transaction_id: str
+    model_version: str
+    feature_contract_version: str
+    fraud_probability: float
+    model_risk_score: int
+    graph_risk_score: int | None
+    unified_risk_score: int
+    expected_fraud_loss: float
+    model_decision: str
+    decision: str
+    decision_reason: str | None
+    review_threshold: float
+    block_threshold: float
+    reason_codes: list[str]
+    explanation_method: str
+    shap_contributions: list[ShapContribution]
+    graph_enrichment: GraphEnrichment
+
+
+def _effective_block_threshold(review_threshold: float, block_threshold: float | None) -> float:
+    if block_threshold is not None:
+        return float(block_threshold)
+    return float(min(0.995, max(review_threshold + 0.20, review_threshold * 1.75)))
+
+
+def _artifact_paths() -> tuple[Path, Path]:
+    model_path = Path(os.getenv("FRAUD_MODEL_PATH", str(DEFAULT_MODEL_PATH)))
+    metadata_path = Path(os.getenv("FRAUD_MODEL_METADATA_PATH", str(DEFAULT_METADATA_PATH)))
+    return model_path, metadata_path
+
+
+@lru_cache(maxsize=1)
+def get_model_bundle() -> ModelBundle:
+    model_path, metadata_path = _artifact_paths()
+    return load_model_bundle(model_path=model_path, metadata_path=metadata_path)
+
+
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(
+        status="ok",
+        service="fraud-intelligence-decision-api",
+        version=app.version,
+    )
+
+
+@app.post("/v1/decision", response_model=DecisionResponse)
+def make_decision(payload: DecisionRequest) -> DecisionResponse:
+    result = make_risk_decisions(
+        probabilities=np.array([payload.fraud_probability], dtype=float),
+        amounts=np.array([payload.amount], dtype=float),
+        review_threshold=payload.review_threshold,
+        block_threshold=payload.block_threshold,
+    ).iloc[0]
+
+    effective_block_threshold = _effective_block_threshold(
+        payload.review_threshold, payload.block_threshold
+    )
+
+    return DecisionResponse(
+        transaction_id=payload.transaction_id,
+        amount=payload.amount,
+        fraud_probability=float(result["fraud_probability"]),
+        risk_score=int(result["risk_score"]),
+        expected_fraud_loss=float(result["expected_fraud_loss"]),
+        decision=str(result["decision"]),
+        review_threshold=payload.review_threshold,
+        block_threshold=effective_block_threshold,
+    )
+
+
+@app.post("/v1/score", response_model=ScoreResponse)
+def score_transaction(payload: ScoreRequest) -> ScoreResponse:
+    try:
+        bundle = get_model_bundle()
+    except (FileNotFoundError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail=f"Model artifact unavailable: {exc}") from exc
+
+    feature_payload = payload.features.model_dump()
+    probability = predict_probability(bundle, feature_payload)
+    block_threshold = _effective_block_threshold(bundle.review_threshold, bundle.block_threshold)
+    result = make_risk_decisions(
+        probabilities=np.array([probability], dtype=float),
+        amounts=np.array([payload.features.amt], dtype=float),
+        review_threshold=bundle.review_threshold,
+        block_threshold=block_threshold,
+    ).iloc[0]
+
+    try:
+        shap_contributions = local_shap_explanation(bundle, feature_payload, top_k=5)
+        explanation_method = "shap_local_v1"
+    except (RuntimeError, TypeError, ValueError):
+        shap_contributions = []
+        explanation_method = "heuristic_input_signals_v1"
+
+    graph = fetch_account_graph_risk(payload.account_id)
+    model_risk = int(result["risk_score"])
+    blended_risk = unified_risk_score(model_risk, graph.graph_risk_score)
+    model_decision = str(result["decision"])
+    final_decision, decision_reason = apply_graph_escalation_policy(
+        model_decision,
+        graph.graph_risk_score,
+    )
+
+    reason_codes = heuristic_reason_codes(feature_payload)
+    if decision_reason is not None:
+        reason_codes = [decision_reason, *reason_codes][:5]
+
+    response = ScoreResponse(
+        transaction_id=payload.transaction_id,
+        model_version=bundle.model_version,
+        feature_contract_version=bundle.feature_contract_version,
+        fraud_probability=float(result["fraud_probability"]),
+        model_risk_score=model_risk,
+        graph_risk_score=graph.graph_risk_score,
+        unified_risk_score=blended_risk,
+        expected_fraud_loss=float(result["expected_fraud_loss"]),
+        model_decision=model_decision,
+        decision=final_decision,
+        decision_reason=decision_reason,
+        review_threshold=float(bundle.review_threshold),
+        block_threshold=block_threshold,
+        reason_codes=reason_codes,
+        explanation_method=explanation_method,
+        shap_contributions=shap_contributions,
+        graph_enrichment=GraphEnrichment(
+            available=graph.available,
+            account_id=graph.account_id,
+            graph_risk_score=graph.graph_risk_score,
+            signals=graph.signals,
+            error=graph.error,
+        ),
+    )
+
+    try:
+        log_score_event(
+            transaction_id=payload.transaction_id,
+            model_version=bundle.model_version,
+            feature_contract_version=bundle.feature_contract_version,
+            fraud_probability=response.fraud_probability,
+            model_risk_score=response.model_risk_score,
+            graph_risk_score=response.graph_risk_score,
+            unified_risk_score=response.unified_risk_score,
+            decision=response.decision,
+            expected_fraud_loss=response.expected_fraud_loss,
+            graph_available=response.graph_enrichment.available,
+            explanation_method=response.explanation_method,
+        )
+    except OSError:
+        # Monitoring must never make a scoring request fail.
+        pass
+
+    return response

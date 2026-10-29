@@ -1,0 +1,30 @@
+{
+  "feature_contract_version": "fraud_ds1_features_v1",
+  "features": [
+    "amt",
+    "city_pop",
+    "customer_age",
+    "merchant_distance_km",
+    "transaction_hour",
+    "transaction_dayofweek",
+    "transaction_month",
+    "is_weekend",
+    "is_night",
+    "prior_txn_count",
+    "prior_avg_amount",
+    "prior_std_amount",
+    "amount_to_prior_mean",
+    "amount_zscore_prior",
+    "minutes_since_prev_txn",
+    "txns_prev_1h",
+    "txns_prev_24h",
+    "prior_same_merchant_count",
+    "prior_same_category_count",
+    "is_new_merchant_for_card",
+    "is_new_category_for_card",
+    "category",
+    "gender",
+    "state"
+  ],
+  "notes": "Single-transaction scoring requires these engineered features. Behavioral fields must be calculated only from transactions occurring before the transaction being scored."
+}

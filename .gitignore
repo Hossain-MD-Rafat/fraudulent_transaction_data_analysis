@@ -32,6 +32,8 @@ models/*
 !models/.gitkeep
 reports/figures/*
 !reports/figures/.gitkeep
+runtime/*
+!runtime/.gitkeep
 
 # Large/derived data should normally stay local.
 # Existing tracked datasets remain tracked until intentionally removed.

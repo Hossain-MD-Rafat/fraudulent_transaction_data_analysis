@@ -1,226 +1,400 @@
-# Financial Fraud Intelligence Platform
+# FraudGraph Intelligence — Financial Fraud & AML Decision Platform
 
-A multi-stage fraud and anti-money-laundering project that combines transaction-level machine learning, behavioral analytics, cost-sensitive decisioning, explainability, and graph intelligence.
+An end-to-end fraud intelligence project that combines leakage-aware transaction machine learning, behavioral analytics, cost-sensitive decisioning, SHAP explanations, Neo4j network intelligence, monitoring, drift detection, FastAPI scoring, and a Streamlit analyst console.
 
-## Project goal
+The project is designed to answer more than **"is this transaction fraudulent?"** It also answers:
 
-The project is being upgraded from a graph-analysis prototype into an industry-style fraud decision system with three phases:
+- how risky is it?
+- how much financial exposure does it represent?
+- why did the model consider it risky?
+- is the related account/network suspicious?
+- should the transaction be approved, reviewed, or blocked?
+- is the model/data distribution changing over time?
 
-1. **Phase 1 — Transaction Fraud Detection Foundation**
-   - leakage-aware feature engineering
-   - chronological train/validation/test evaluation
-   - Logistic Regression, Random Forest, and XGBoost benchmarking
-   - class-imbalance-aware learning
-   - cost-sensitive threshold selection
-   - risk score / expected fraud exposure / decision output
-   - SHAP explainability
-2. **Phase 2 — Graph Fraud & AML Intelligence**
-   - redesigned Neo4j transaction graph
-   - account-network features
-   - suspicious community / fraud-ring analysis
-   - hybrid graph + ML risk features
-3. **Phase 3 — Fraud Decision Platform**
-   - risk-scoring API
-   - analyst investigation dashboard
-   - monitoring and reproducible deployment
-   - model and decision-policy observability
+## Architecture
 
-## Current Phase 1 implementation
+```text
+Historical transactions
+        |
+        v
+Leakage-aware behavioral features
+        |
+        v
+Logistic Regression / Random Forest / XGBoost benchmark
+        |
+        v
+Versioned selected model artifact
+        |
+        +----------------------------+
+        |                            |
+        v                            v
+Transaction model risk        Neo4j network risk
+        |                            |
+        +-------------+--------------+
+                      |
+                      v
+              Unified operational risk
+                      |
+          +-----------+-----------+
+          |           |           |
+       APPROVE      REVIEW       BLOCK
+                      |
+                      v
+              Analyst investigation
+```
 
-The Phase 1 branch introduces behavioral features for `fraud_ds1` that only use information available before the current transaction. This reduces leakage and more closely matches how a real fraud system scores incoming events.
+## What makes the project production-oriented
 
-### Behavioral features
+### 1. Leakage-aware behavioral modeling
 
-- transaction hour, weekday, month, weekend/night indicators
-- customer age
-- customer-to-merchant Haversine distance
+Behavioral features use information available **before** the transaction being scored. Examples include:
+
 - prior transaction count
-- prior average and standard deviation of transaction amount
-- amount relative to the customer's prior average
-- prior-only amount z-score
-- time since the previous transaction
-- transaction velocity over the previous 1 hour and 24 hours
-- prior merchant/category usage
+- prior mean / standard deviation of spend
+- amount deviation from customer history
+- previous 1-hour / 24-hour velocity
+- time since prior transaction
+- prior merchant and category usage
 - new-merchant and new-category indicators
+- customer-to-merchant distance
+- nighttime / weekend behavior
 
-### Evaluation design
+The project uses chronological train/validation/test splits rather than random splitting.
 
-The project uses a chronological split:
+### 2. Imbalanced fraud evaluation
 
-```text
-oldest data                                  newest data
-|----------------|---------------|----------------|
-     train 70%       validation 15%      test 15%
-```
+Fraud is rare, so accuracy is not the main success metric. The benchmark emphasizes:
 
-The validation set is used for model comparison and decision-threshold selection. The test set remains untouched until the model and operating threshold have been selected.
+- PR-AUC
+- ROC-AUC
+- precision
+- recall
+- F1
+- cost-sensitive thresholds
+- expected fraud exposure
 
-This is intentionally different from a random split because a production fraud model trains on past behavior and scores future transactions.
+The measured XGBoost benchmark on the untouched test window produced approximately:
 
-### Model benchmark
+| Metric | Result |
+|---|---:|
+| PR-AUC | 0.673 |
+| ROC-AUC | 0.965 |
+| Precision | 35.7% |
+| Recall | 71.4% |
+| F1 | 47.6% |
+| Fraud cases detected | 5 / 7 |
 
-`scripts/benchmark_fraud_models.py` compares:
+Because the test period contains only a small number of fraud events, the project also includes expanding-window temporal backtesting and avoids over-claiming stability from a single split.
 
-- class-weighted Logistic Regression
-- class-balanced Random Forest
-- XGBoost with positive-class weighting
+### 3. Cost-sensitive decisioning
 
-The primary model-selection metric is validation **PR-AUC**, which is more informative than accuracy for highly imbalanced fraud data.
+The decision layer recognizes that missed fraud and unnecessary analyst reviews have different costs.
 
-Each candidate model receives its own validation-only cost-sensitive threshold.
-
-### Cost-sensitive fraud decisioning
-
-A missed fraudulent transaction and an unnecessary analyst review do not have the same financial impact.
-
-The Phase 1 decision layer models:
-
-```text
-false negative cost = missed fraudulent transaction amount × loss multiplier
-false positive cost = manual-review cost
-```
-
-The defaults are intentionally configurable. They are project assumptions rather than claimed bank-specific economics.
-
-For the final model, each transaction receives:
+Each scored transaction can produce:
 
 - fraud probability
-- risk score from 0–100
-- expected fraud loss (`probability × amount`)
-- operational action: `APPROVE`, `REVIEW`, or `BLOCK`
+- model risk score (0–100)
+- expected fraud loss
+- graph risk score (when Neo4j is available)
+- unified operational risk score
+- `APPROVE`, `REVIEW`, or `BLOCK`
 
-### Explainability
+### 4. Explainability
 
-`scripts/explain_fraud_model.py` generates global SHAP feature importance for the selected model so the project can answer not only **which transactions are risky**, but also **which behavioral signals drive model risk**.
+The platform supports local SHAP explanations for compatible packaged models and returns top signed feature contributions.
+
+If SHAP is unavailable, the API explicitly falls back to transparent investigator cues such as:
+
+- unusually high amount vs prior behavior
+- large customer-to-merchant distance
+- high transaction velocity
+- new merchant
+- new category
+- nighttime transaction
+
+Fallback signals are clearly labeled and are not presented as SHAP values.
+
+### 5. Graph / AML intelligence
+
+AML transfers are modeled as first-class event nodes rather than collapsed account-to-account relationships:
+
+```text
+(Account)-[:SENT]->(AMLTransfer)-[:RECEIVED_BY]->(Account)
+```
+
+This preserves repeated transfers and supports investigation of:
+
+- laundering-neighbor exposure
+- many-to-one funnels
+- one-to-many fan-out behavior
+- rapid pass-through movement
+- short circular transfer patterns
+- suspicious counterparties
+
+Graph enrichment is optional and fail-open: if Neo4j is unavailable, transaction model scoring still works.
+
+### 6. Governed graph escalation
+
+Network intelligence is allowed to **escalate but never de-escalate** a model decision.
+
+Default thresholds:
+
+```text
+Graph risk < 60      -> no graph escalation
+Graph risk 60–84    -> escalate to REVIEW when needed
+Graph risk >= 85    -> escalate to BLOCK when needed
+```
+
+Thresholds are configurable through environment variables.
+
+The response exposes both:
+
+- `model_decision`
+- final `decision`
+
+and includes a decision reason when graph intelligence caused an escalation.
+
+### 7. Model artifact governance
+
+Model artifacts are kept outside Git and packaged with metadata containing:
+
+- model version
+- feature-contract version
+- exact feature order
+- validation-selected threshold
+- benchmark metadata
+- SHA-256 artifact checksum
+
+The API rejects a missing, incompatible, or checksum-mismatched artifact rather than silently falling back to another model.
+
+### 8. Monitoring and drift detection
+
+Operational scoring events can be written to JSONL with:
+
+- hashed transaction identifiers
+- model/version information
+- risk scores
+- decisions
+- expected exposure
+- graph-enrichment availability
+
+Raw feature payloads are not written to monitoring logs.
+
+The project also includes:
+
+- numeric drift monitoring with Population Stability Index (PSI)
+- categorical distribution-distance checks
+- low / moderate / high drift flags
+- aggregate-only reference profiles
+- operational KPI summaries
+
+## Analyst console
+
+The Streamlit console supports:
+
+- transaction counts
+- review and block queues
+- aggregate expected exposure
+- risk-score distributions
+- decision distributions
+- investigation prioritization by expected loss
+- single-transaction decision simulation
+
+## Portfolio visuals
+
+Saved project visuals are available under:
+
+```text
+outputs/visualizations/portfolio/
+```
+
+Included visuals cover:
+
+- class imbalance
+- fraud vs legitimate amount distribution
+- fraud rate by hour
+- category-level fraud rates
+- AML payment-format activity
+- model benchmark comparison
 
 ## Repository structure
 
 ```text
 fraudulent_transaction_data_analysis/
-├── .github/
-│   └── workflows/
-│       └── tests.yml
+├── api/
+│   └── main.py
+├── dashboard/
+│   └── app.py
 ├── data/
 │   ├── raw/
 │   ├── cleaned/
 │   └── transformed/
+├── docs/
+│   └── PHASE3_PLATFORM.md
+├── models/                  # generated locally, Git-ignored
+├── outputs/
+│   └── visualizations/
 ├── scripts/
-│   ├── data_cleaning.py
-│   ├── etl.py
-│   ├── transformations.py
-│   ├── graph_modeling.cypher
-│   ├── train_fraud_baseline.py
 │   ├── benchmark_fraud_models.py
-│   └── explain_fraud_model.py
+│   ├── package_fraud_model.py
+│   ├── smoke_test_packaged_model.py
+│   ├── explain_fraud_model.py
+│   ├── temporal_backtest_fraud_models.py
+│   ├── graph_modeling.cypher
+│   └── graph_queries.cypher
 ├── src/
 │   └── fraud_detection/
-│       ├── __init__.py
 │       ├── features.py
+│       ├── inference.py
+│       ├── explainability.py
+│       ├── graph_risk.py
+│       ├── monitoring.py
+│       ├── drift.py
 │       └── risk.py
 ├── tests/
-│   ├── test_features.py
-│   └── test_risk.py
-├── outputs/
-├── pyproject.toml
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 └── README.md
 ```
 
 ## Setup
 
+Create an environment and install dependencies:
+
 ```bash
 python -m venv .venv
-```
-
-Activate the environment and install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-Run the interpretable baseline:
+## Train and package the fraud model
 
-```bash
-python scripts/train_fraud_baseline.py
-```
-
-Run the full Phase 1 benchmark:
+Run the benchmark:
 
 ```bash
 python scripts/benchmark_fraud_models.py
 ```
 
-Generate SHAP importance after the benchmark:
+Package the selected model for Phase 3:
 
 ```bash
-python scripts/explain_fraud_model.py
+python scripts/package_fraud_model.py
 ```
 
-Run tests:
+Run the real-artifact smoke test:
 
 ```bash
-pytest
+python scripts/smoke_test_packaged_model.py
 ```
 
-## Phase 1 outputs
-
-Generated model artifacts are intentionally excluded from version control. After running the Phase 1 scripts locally, outputs are written under:
+This creates a local versioned artifact such as:
 
 ```text
-outputs/phase1/
-├── fraud_baseline.joblib
-├── metrics.json
-├── test_predictions.csv
-├── best_fraud_model.joblib
-├── model_benchmark.json
-├── best_model_test_predictions.csv
-├── shap_feature_importance.csv
-└── shap_top_features.json
+models/fraud_ds1_xgb_v1/
+├── model.joblib
+└── metadata.json
 ```
 
-## Evaluation philosophy
+## Run the platform
 
-Because fraud is highly imbalanced, model quality should not be judged primarily by accuracy. The project prioritizes:
+Start the API:
 
-- Precision
-- Recall
-- F1
-- PR-AUC
-- ROC-AUC
-- validation-only operating thresholds
-- estimated fraud loss / review cost
-- expected dollar exposure
-- analyst-review decisions
+```bash
+uvicorn api.main:app --reload
+```
 
-This creates two layers of evaluation:
+API docs:
 
-1. **Model quality:** how well the model ranks risky transactions.
-2. **Decision quality:** how useful that ranking becomes under operational costs and thresholds.
+```text
+http://localhost:8000/docs
+```
 
-## Existing graph foundation
+Start the analyst console:
 
-The repository already includes a Neo4j-oriented ETL and graph pipeline for customers, merchants, accounts, banks, transactions, and money-laundering transfers.
+```bash
+streamlit run dashboard/app.py
+```
 
-Phase 2 will redesign the AML graph so every transfer is preserved as its own financial-event node rather than allowing repeated transfers between the same account pair to collapse into one relationship. The redesign will also address currently disconnected transaction records and enable graph features such as degree, centrality, suspicious-neighbor ratios, communities, cycles, funnels, and rapid movement patterns.
+Or run the application stack with Docker:
 
-## CI
+```bash
+docker compose up --build
+```
 
-GitHub Actions runs the unit-test suite on pushes and pull requests, helping keep the feature-engineering and risk-scoring logic reproducible as the project grows.
+## API endpoints
 
-## Roadmap
+### `GET /health`
 
-- [x] Reproducible Python dependencies
-- [x] Project `.gitignore`
-- [x] Leakage-aware behavioral feature engineering
-- [x] Chronological train/validation/test pipeline
-- [x] Logistic Regression baseline
-- [x] Random Forest / XGBoost comparison pipeline
-- [x] Cost-sensitive threshold selection
-- [x] Expected fraud exposure and risk decision layer
-- [x] SHAP explainability pipeline
-- [x] Unit tests and GitHub Actions CI
-- [ ] Run and record benchmark metrics
-- [ ] Tune final model from measured benchmark results
-- [ ] Redesign AML graph transaction model
-- [ ] Add graph features and fraud-ring analysis
-- [ ] Add risk-scoring API and analyst dashboard
+Service health information.
+
+### `POST /v1/decision`
+
+Converts an already-computed fraud probability into a risk score, expected exposure, and decision.
+
+### `POST /v1/score`
+
+Scores the strict `fraud_ds1_features_v1` feature contract with the versioned model artifact and optionally enriches the result with Neo4j account/network risk.
+
+The response can include:
+
+- model version
+- feature-contract version
+- fraud probability
+- model risk score
+- graph risk score
+- unified risk score
+- model decision
+- final governed decision
+- expected fraud loss
+- reason codes
+- SHAP contributions
+- graph signals
+
+## Configuration
+
+Copy `.env.example` and configure values as needed.
+
+Important environment variables include:
+
+```text
+FRAUD_MODEL_PATH
+FRAUD_MODEL_METADATA_PATH
+NEO4J_URI
+NEO4J_USER
+NEO4J_PASSWORD
+NEO4J_DATABASE
+GRAPH_REVIEW_THRESHOLD
+GRAPH_BLOCK_THRESHOLD
+FRAUD_MONITORING_LOG
+```
+
+## Validation and CI
+
+GitHub Actions currently validates three layers:
+
+1. **Unit tests** — feature engineering, scoring, graph policy, monitoring, drift, and API contracts.
+2. **Real-model smoke test** — trains the benchmark, packages the selected model, validates checksum metadata, reloads the artifact, and performs a real score.
+3. **Docker validation** — validates the Compose file and builds the full application image.
+
+## Project phases
+
+- [x] Phase 1 — leakage-aware transaction fraud ML
+- [x] Phase 1 — cost-sensitive thresholding and expected exposure
+- [x] Phase 1 — Logistic Regression / Random Forest / XGBoost benchmark
+- [x] Phase 1 — expanding-window temporal evaluation
+- [x] Phase 1 — SHAP explainability
+- [x] Phase 2 — AML transfer-event graph redesign
+- [x] Phase 2 — graph integrity validation
+- [x] Phase 2 — fraud / AML investigation queries
+- [x] Phase 3 — FastAPI scoring service
+- [x] Phase 3 — versioned model artifact contract
+- [x] Phase 3 — local explanations
+- [x] Phase 3 — optional Neo4j risk enrichment
+- [x] Phase 3 — governed graph escalation
+- [x] Phase 3 — analyst dashboard
+- [x] Phase 3 — monitoring and drift detection
+- [x] Phase 3 — Docker and CI validation
+
+## Design principle
+
+> Build a system that detects, explains, prioritizes, and investigates financial risk — not just a model that predicts fraud.

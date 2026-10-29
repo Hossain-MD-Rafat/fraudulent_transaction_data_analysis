@@ -1,0 +1,27 @@
+services:
+  api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models:ro
+      - ./runtime:/app/runtime
+    environment:
+      FRAUD_MODEL_PATH: /app/models/fraud_ds1_xgb_v1/model.joblib
+      FRAUD_MODEL_METADATA_PATH: /app/models/fraud_ds1_xgb_v1/metadata.json
+      FRAUD_MONITORING_LOG: /app/runtime/scoring_events.jsonl
+      NEO4J_URI: ${NEO4J_URI:-}
+      NEO4J_USER: ${NEO4J_USER:-}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+    restart: unless-stopped
+
+  dashboard:
+    build: .
+    command: streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    restart: unless-stopped
