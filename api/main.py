@@ -27,6 +27,7 @@ from fraud_detection.inference import (  # noqa: E402
     load_model_bundle,
     predict_probability,
 )
+from fraud_detection.monitoring import log_score_event  # noqa: E402
 from fraud_detection.risk import make_risk_decisions  # noqa: E402
 
 
@@ -219,7 +220,7 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
     model_risk = int(result["risk_score"])
     blended_risk = unified_risk_score(model_risk, graph.graph_risk_score)
 
-    return ScoreResponse(
+    response = ScoreResponse(
         transaction_id=payload.transaction_id,
         model_version=bundle.model_version,
         feature_contract_version=bundle.feature_contract_version,
@@ -242,3 +243,23 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
             error=graph.error,
         ),
     )
+
+    try:
+        log_score_event(
+            transaction_id=payload.transaction_id,
+            model_version=bundle.model_version,
+            feature_contract_version=bundle.feature_contract_version,
+            fraud_probability=response.fraud_probability,
+            model_risk_score=response.model_risk_score,
+            graph_risk_score=response.graph_risk_score,
+            unified_risk_score=response.unified_risk_score,
+            decision=response.decision,
+            expected_fraud_loss=response.expected_fraud_loss,
+            graph_available=response.graph_enrichment.available,
+            explanation_method=response.explanation_method,
+        )
+    except OSError:
+        # Monitoring must never make a scoring request fail.
+        pass
+
+    return response
