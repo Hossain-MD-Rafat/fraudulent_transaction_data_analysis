@@ -137,12 +137,17 @@ def test_score_endpoint_loads_versioned_artifact(tmp_path, monkeypatch):
     assert payload["model_version"] == "test_model_v1"
     assert payload["feature_contract_version"] == FEATURE_CONTRACT_VERSION
     assert payload["fraud_probability"] == 0.92
-    assert payload["risk_score"] == 92
+    assert payload["model_risk_score"] == 92
+    assert payload["graph_risk_score"] is None
+    assert payload["unified_risk_score"] == 92
     assert payload["decision"] == "BLOCK"
     assert payload["expected_fraud_loss"] == 1104.0
     assert "AMOUNT_HIGH_VS_CUSTOMER_HISTORY" in payload["reason_codes"]
     assert "MERCHANT_FAR_FROM_CUSTOMER" in payload["reason_codes"]
     assert payload["explanation_method"] == "heuristic_input_signals_v1"
+    assert payload["shap_contributions"] == []
+    assert payload["graph_enrichment"]["available"] is False
+    assert payload["graph_enrichment"]["error"] == "account_id_not_provided"
 
 
 def test_score_endpoint_returns_503_when_artifact_missing(tmp_path, monkeypatch):
