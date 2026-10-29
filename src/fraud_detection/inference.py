@@ -8,6 +8,7 @@ its feature contract and operating thresholds.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -56,6 +57,14 @@ class ModelBundle:
     metadata: dict[str, Any]
 
 
+def file_sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        while chunk := file.read(chunk_size):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _validate_metadata(metadata: dict[str, Any]) -> None:
     required = {
         "model_version",
@@ -87,6 +96,12 @@ def load_model_bundle(model_path: Path, metadata_path: Path) -> ModelBundle:
     with metadata_path.open("r", encoding="utf-8") as file:
         metadata = json.load(file)
     _validate_metadata(metadata)
+
+    expected_checksum = metadata.get("artifact_sha256")
+    if expected_checksum is not None:
+        actual_checksum = file_sha256(model_path)
+        if actual_checksum != str(expected_checksum):
+            raise ValueError("Model artifact checksum does not match metadata")
 
     model = joblib.load(model_path)
     if not hasattr(model, "predict_proba"):
@@ -126,10 +141,11 @@ def predict_probability(bundle: ModelBundle, payload: dict[str, Any]) -> float:
 
 
 def heuristic_reason_codes(payload: dict[str, Any]) -> list[str]:
-    """Return transparent input-based reason codes until SHAP is attached.
+    """Return transparent input-based investigator cues.
 
-    These are not presented as model feature attributions. They are simple
-    investigator cues derived from the engineered feature values.
+    These are not model feature attributions. They are simple, stable reason
+    codes derived from the engineered feature values and remain useful when a
+    local SHAP explanation cannot be computed.
     """
     reasons: list[str] = []
 
