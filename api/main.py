@@ -18,6 +18,7 @@ if str(SRC_DIR) not in sys.path:
 
 from fraud_detection.explainability import local_shap_explanation  # noqa: E402
 from fraud_detection.graph_risk import (  # noqa: E402
+    apply_graph_escalation_policy,
     fetch_account_graph_risk,
     unified_risk_score,
 )
@@ -33,10 +34,11 @@ from fraud_detection.risk import make_risk_decisions  # noqa: E402
 
 app = FastAPI(
     title="Fraud Intelligence Decision API",
-    version="0.3.0",
+    version="0.4.0",
     description=(
         "Fraud scoring and decision service with versioned model inference, "
-        "local explanations, optional Neo4j network enrichment, and risk policy."
+        "local explanations, optional Neo4j network enrichment, and governed "
+        "decision escalation."
     ),
 )
 
@@ -131,7 +133,9 @@ class ScoreResponse(BaseModel):
     graph_risk_score: int | None
     unified_risk_score: int
     expected_fraud_loss: float
+    model_decision: str
     decision: str
+    decision_reason: str | None
     review_threshold: float
     block_threshold: float
     reason_codes: list[str]
@@ -219,6 +223,15 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
     graph = fetch_account_graph_risk(payload.account_id)
     model_risk = int(result["risk_score"])
     blended_risk = unified_risk_score(model_risk, graph.graph_risk_score)
+    model_decision = str(result["decision"])
+    final_decision, decision_reason = apply_graph_escalation_policy(
+        model_decision,
+        graph.graph_risk_score,
+    )
+
+    reason_codes = heuristic_reason_codes(feature_payload)
+    if decision_reason is not None:
+        reason_codes = [decision_reason, *reason_codes][:5]
 
     response = ScoreResponse(
         transaction_id=payload.transaction_id,
@@ -229,10 +242,12 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
         graph_risk_score=graph.graph_risk_score,
         unified_risk_score=blended_risk,
         expected_fraud_loss=float(result["expected_fraud_loss"]),
-        decision=str(result["decision"]),
+        model_decision=model_decision,
+        decision=final_decision,
+        decision_reason=decision_reason,
         review_threshold=float(bundle.review_threshold),
         block_threshold=block_threshold,
-        reason_codes=heuristic_reason_codes(feature_payload),
+        reason_codes=reason_codes,
         explanation_method=explanation_method,
         shap_contributions=shap_contributions,
         graph_enrichment=GraphEnrichment(
