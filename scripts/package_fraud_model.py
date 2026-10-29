@@ -20,7 +20,11 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from fraud_detection.inference import FEATURE_CONTRACT_VERSION, FEATURES  # noqa: E402
+from fraud_detection.inference import (  # noqa: E402
+    FEATURE_CONTRACT_VERSION,
+    FEATURES,
+    file_sha256,
+)
 
 PHASE1_DIR = PROJECT_ROOT / "outputs" / "phase1"
 SOURCE_MODEL = PHASE1_DIR / "best_fraud_model.joblib"
@@ -39,7 +43,8 @@ def main() -> None:
         benchmark = json.load(file)
 
     TARGET_DIR.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(SOURCE_MODEL, TARGET_DIR / "model.joblib")
+    target_model = TARGET_DIR / "model.joblib"
+    shutil.copy2(SOURCE_MODEL, target_model)
 
     metadata = {
         "model_version": MODEL_VERSION,
@@ -53,12 +58,14 @@ def main() -> None:
         "final_test": benchmark["final_test"],
         "training_source": "fraud_ds1",
         "artifact_source": "outputs/phase1/best_fraud_model.joblib",
+        "artifact_sha256": file_sha256(target_model),
     }
 
     with (TARGET_DIR / "metadata.json").open("w", encoding="utf-8") as file:
         json.dump(metadata, file, indent=2)
 
     print(f"Packaged model: {TARGET_DIR}")
+    print(f"SHA-256: {metadata['artifact_sha256']}")
 
 
 if __name__ == "__main__":
