@@ -33,18 +33,24 @@ Privacy-conscious JSONL monitoring stream
 
 The service uses a strict versioned feature contract. Behavioral features must be calculated from transactions that occurred before the transaction being scored; the API does not reconstruct historical customer behavior from a single raw transaction.
 
-## Prepare the model artifact
+## Prepare and validate the model artifact
 
-First run the benchmark that selects and serializes the best Phase 1 pipeline:
+Run the benchmark that selects and serializes the best Phase 1 pipeline:
 
 ```bash
 python scripts/benchmark_fraud_models.py
 ```
 
-Then package it for the scoring service:
+Package it for the scoring service:
 
 ```bash
 python scripts/package_fraud_model.py
+```
+
+Validate the exact packaged artifact through the production loader:
+
+```bash
+python scripts/smoke_test_packaged_model.py
 ```
 
 This creates the local, Git-ignored directory:
@@ -55,7 +61,7 @@ models/fraud_ds1_xgb_v1/
 └── metadata.json
 ```
 
-The metadata records the model version, feature-contract version, exact feature order, validation-selected review threshold, split strategy, and final test metrics. The API rejects missing or incompatible artifacts instead of silently falling back to another model.
+Metadata records the model version, feature-contract version, exact feature order, validation-selected review threshold, split strategy, final test metrics, and SHA-256 checksum. The API rejects missing, incompatible, or checksum-mismatched artifacts instead of silently falling back to another model.
 
 ## Run locally
 
@@ -64,7 +70,7 @@ pip install -r requirements.txt
 uvicorn api.main:app --reload
 ```
 
-Open `http://localhost:8000/docs` for the interactive API documentation.
+Open `http://localhost:8000/docs` for interactive API documentation.
 
 In another terminal:
 
@@ -111,19 +117,20 @@ The request contains a transaction ID, an optional AML `account_id`, and the `fr
 - model version
 - feature-contract version
 - calibrated model fraud probability
-- model risk score (0-100)
-- optional graph risk score (0-100)
-- unified operational risk score (0-100)
+- model risk score (0–100)
+- optional graph risk score (0–100)
+- unified operational risk score (0–100)
 - expected fraud exposure
-- APPROVE / REVIEW / BLOCK action
-- effective review and block thresholds
+- model decision
+- final governed decision
+- decision reason when network intelligence escalates the action
 - heuristic investigator reason codes
 - top local SHAP contributions when the packaged pipeline supports SHAP
 - graph-enrichment availability and network signals
 
 The unified risk score is an operational prioritization score, not a second fraud probability. When graph enrichment is unavailable, it falls back to the model risk score.
 
-If the model or metadata is unavailable or incompatible, `/v1/score` returns HTTP 503. If Neo4j is unavailable, the model score still succeeds and the response explicitly reports why graph enrichment was skipped.
+If the model or metadata is unavailable or incompatible, `/v1/score` returns HTTP 503. If Neo4j is unavailable, model scoring still succeeds and the response explicitly reports why graph enrichment was skipped.
 
 ## Local explanations
 
@@ -133,7 +140,7 @@ For supported packaged pipelines, the API computes local SHAP contributions on t
 - signed SHAP value
 - direction (`toward_fraud` or `toward_legitimate`)
 
-If SHAP cannot be computed, the service safely falls back to the transparent heuristic input signals already used by investigators.
+If SHAP cannot be computed, the service safely falls back to transparent heuristic input signals.
 
 ## Neo4j graph enrichment
 
@@ -154,13 +161,61 @@ The graph layer currently measures interpretable indicators such as:
 - rapid pass-through activity
 - three-hop circular movement
 
-These indicators are converted into a bounded graph-risk score and blended with the model score using a transparent 80/20 operational weighting. This weighting is a project policy assumption and should be governed/tuned by a real fraud-risk team before production use.
+These indicators are converted into a bounded graph-risk score and blended with the model score using a transparent 80/20 operational weighting. This weighting is a project policy assumption, not a calibrated fraud probability.
+
+## Governed graph escalation
+
+Network evidence can escalate a transaction-model decision, but it can never lower one.
+
+Default policy:
+
+```text
+Graph risk < 60      -> no escalation
+Graph risk 60–84    -> at least REVIEW
+Graph risk >= 85    -> BLOCK
+```
+
+Configure with:
+
+```text
+GRAPH_REVIEW_THRESHOLD
+GRAPH_BLOCK_THRESHOLD
+```
+
+Examples:
+
+```text
+Model APPROVE + graph 72 -> REVIEW
+Model REVIEW  + graph 91 -> BLOCK
+Model BLOCK   + graph 10 -> BLOCK
+```
+
+The API exposes both `model_decision` and final `decision`, plus `decision_reason` when escalation occurs.
 
 ## Monitoring and audit events
 
 Set `FRAUD_MONITORING_LOG` to enable append-only JSONL scoring events. The log stores model/version fields, probability, model/graph/unified scores, decision, expected exposure, graph availability, and explanation method.
 
 Raw feature payloads are not logged, and transaction IDs are SHA-256 hashed before persistence. Monitoring failures never cause a scoring request to fail.
+
+Operational KPI tooling summarizes:
+
+- decision distribution
+- average fraud probability
+- average unified risk
+- expected fraud exposure
+- graph-enrichment coverage
+- model-version usage
+
+## Drift monitoring
+
+The project can generate aggregate-only reference distributions from the historical feature set and compare later batches using:
+
+- Population Stability Index (PSI) for numeric features
+- categorical total-variation distance
+- low / moderate / high drift flags
+
+Reference files contain distribution summaries, not raw training records.
 
 ## Analyst console
 
@@ -176,10 +231,12 @@ The Streamlit console can ingest a scored transaction CSV and provides:
 - minimum-exposure and decision filters
 - single-transaction decision simulator
 
-## Next production increments
+## CI quality gates
 
-1. Add drift monitoring against training/reference feature distributions.
-2. Add operational KPI summaries from the JSONL scoring stream.
-3. Add Docker build checks and deployment configuration.
-4. Add model-registry / artifact checksum validation.
-5. Add a governed policy for whether graph risk can escalate an APPROVE decision to REVIEW/BLOCK.
+GitHub Actions validates three independent layers:
+
+1. unit tests for ML/decision/graph/monitoring/drift/API logic
+2. real-model smoke test that retrains, packages, reloads, and scores with the selected XGBoost artifact
+3. Docker Compose validation and full application image build
+
+Phase 3 should be merged only after all three gates are green on the final branch head.
