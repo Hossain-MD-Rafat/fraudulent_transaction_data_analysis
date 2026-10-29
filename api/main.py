@@ -16,6 +16,11 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from fraud_detection.explainability import local_shap_explanation  # noqa: E402
+from fraud_detection.graph_risk import (  # noqa: E402
+    fetch_account_graph_risk,
+    unified_risk_score,
+)
 from fraud_detection.inference import (  # noqa: E402
     ModelBundle,
     heuristic_reason_codes,
@@ -27,10 +32,10 @@ from fraud_detection.risk import make_risk_decisions  # noqa: E402
 
 app = FastAPI(
     title="Fraud Intelligence Decision API",
-    version="0.2.0",
+    version="0.3.0",
     description=(
-        "Fraud scoring and decision service with a versioned inference feature "
-        "contract, model metadata, risk scores, expected exposure, and actions."
+        "Fraud scoring and decision service with versioned model inference, "
+        "local explanations, optional Neo4j network enrichment, and risk policy."
     ),
 )
 
@@ -98,7 +103,22 @@ class ScoreFeatures(BaseModel):
 
 class ScoreRequest(BaseModel):
     transaction_id: str = Field(min_length=1, max_length=256)
+    account_id: str | None = Field(default=None, max_length=256)
     features: ScoreFeatures
+
+
+class ShapContribution(BaseModel):
+    feature: str
+    shap_value: float
+    direction: str
+
+
+class GraphEnrichment(BaseModel):
+    available: bool
+    account_id: str | None
+    graph_risk_score: int | None
+    signals: dict[str, float | int]
+    error: str | None
 
 
 class ScoreResponse(BaseModel):
@@ -106,13 +126,17 @@ class ScoreResponse(BaseModel):
     model_version: str
     feature_contract_version: str
     fraud_probability: float
-    risk_score: int
+    model_risk_score: int
+    graph_risk_score: int | None
+    unified_risk_score: int
     expected_fraud_loss: float
     decision: str
     review_threshold: float
     block_threshold: float
     reason_codes: list[str]
     explanation_method: str
+    shap_contributions: list[ShapContribution]
+    graph_enrichment: GraphEnrichment
 
 
 def _effective_block_threshold(review_threshold: float, block_threshold: float | None) -> float:
@@ -176,9 +200,7 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
 
     feature_payload = payload.features.model_dump()
     probability = predict_probability(bundle, feature_payload)
-    block_threshold = _effective_block_threshold(
-        bundle.review_threshold, bundle.block_threshold
-    )
+    block_threshold = _effective_block_threshold(bundle.review_threshold, bundle.block_threshold)
     result = make_risk_decisions(
         probabilities=np.array([probability], dtype=float),
         amounts=np.array([payload.features.amt], dtype=float),
@@ -186,16 +208,37 @@ def score_transaction(payload: ScoreRequest) -> ScoreResponse:
         block_threshold=block_threshold,
     ).iloc[0]
 
+    try:
+        shap_contributions = local_shap_explanation(bundle, feature_payload, top_k=5)
+        explanation_method = "shap_local_v1"
+    except (RuntimeError, TypeError, ValueError):
+        shap_contributions = []
+        explanation_method = "heuristic_input_signals_v1"
+
+    graph = fetch_account_graph_risk(payload.account_id)
+    model_risk = int(result["risk_score"])
+    blended_risk = unified_risk_score(model_risk, graph.graph_risk_score)
+
     return ScoreResponse(
         transaction_id=payload.transaction_id,
         model_version=bundle.model_version,
         feature_contract_version=bundle.feature_contract_version,
         fraud_probability=float(result["fraud_probability"]),
-        risk_score=int(result["risk_score"]),
+        model_risk_score=model_risk,
+        graph_risk_score=graph.graph_risk_score,
+        unified_risk_score=blended_risk,
         expected_fraud_loss=float(result["expected_fraud_loss"]),
         decision=str(result["decision"]),
         review_threshold=float(bundle.review_threshold),
         block_threshold=block_threshold,
         reason_codes=heuristic_reason_codes(feature_payload),
-        explanation_method="heuristic_input_signals_v1",
+        explanation_method=explanation_method,
+        shap_contributions=shap_contributions,
+        graph_enrichment=GraphEnrichment(
+            available=graph.available,
+            account_id=graph.account_id,
+            graph_risk_score=graph.graph_risk_score,
+            signals=graph.signals,
+            error=graph.error,
+        ),
     )
