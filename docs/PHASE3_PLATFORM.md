@@ -239,4 +239,4 @@ GitHub Actions validates three independent layers:
 2. real-model smoke test that retrains, packages, reloads, and scores with the selected XGBoost artifact
 3. Docker Compose validation and full application image build
 
-Phase 3 should be merged only after all three gates are green on the final branch head.
+All three gates have been validated successfully on the completed Phase 3 branch validation run.
