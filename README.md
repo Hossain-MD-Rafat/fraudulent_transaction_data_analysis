@@ -11,6 +11,8 @@
 
 > The goal is not just to predict fraud. The platform is designed to **detect, explain, prioritize, and investigate financial risk**.
 
+**Project docs:** [Portfolio summary](docs/PORTFOLIO_SUMMARY.md) · [Phase 3 runbook](docs/PHASE3_PLATFORM.md) · [Data governance](docs/DATA_GOVERNANCE.md)
+
 ## At a glance
 
 | Capability | Implementation |
