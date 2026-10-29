@@ -8,7 +8,6 @@ base model scoring.
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
 import os
 from typing import Any
 
@@ -112,3 +111,40 @@ def unified_risk_score(model_risk_score: int, graph_risk_score: int | None) -> i
         return int(max(0, min(100, model_risk_score)))
     blended = 0.80 * float(model_risk_score) + 0.20 * float(graph_risk_score)
     return int(max(0, min(100, round(blended))))
+
+
+def apply_graph_escalation_policy(
+    base_decision: str,
+    graph_risk_score: int | None,
+    review_threshold: int | None = None,
+    block_threshold: int | None = None,
+) -> tuple[str, str | None]:
+    """Allow network intelligence to escalate, but never de-escalate, a decision.
+
+    Defaults can be overridden through ``GRAPH_REVIEW_THRESHOLD`` and
+    ``GRAPH_BLOCK_THRESHOLD``. This is intentionally a conservative policy:
+    graph evidence may move APPROVE -> REVIEW or APPROVE/REVIEW -> BLOCK, but
+    it never lowers a decision made by the transaction model.
+    """
+    review = int(review_threshold or os.getenv("GRAPH_REVIEW_THRESHOLD", "60"))
+    block = int(block_threshold or os.getenv("GRAPH_BLOCK_THRESHOLD", "85"))
+    if not 0 <= review <= block <= 100:
+        raise ValueError("Graph thresholds must satisfy 0 <= review <= block <= 100")
+
+    if graph_risk_score is None:
+        return base_decision, None
+
+    rank = {"APPROVE": 0, "REVIEW": 1, "BLOCK": 2}
+    if base_decision not in rank:
+        raise ValueError(f"Unsupported decision: {base_decision}")
+
+    graph_decision = (
+        "BLOCK"
+        if graph_risk_score >= block
+        else "REVIEW"
+        if graph_risk_score >= review
+        else "APPROVE"
+    )
+    final = base_decision if rank[base_decision] >= rank[graph_decision] else graph_decision
+    reason = None if final == base_decision else f"GRAPH_ESCALATION_{graph_decision}"
+    return final, reason
